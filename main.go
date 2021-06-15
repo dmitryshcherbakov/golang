@@ -36,7 +36,7 @@ func reader(conn *websocket.Conn) {
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Home Page ;)+ Super Truper")
+    fmt.Fprintf(w, "Home Page ;)+ Super Truper And Git)")
 }
 
 func wsEndpoint(w http.ResponseWriter, r *http.Request) {
