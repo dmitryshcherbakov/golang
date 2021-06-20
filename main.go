@@ -1,9 +1,13 @@
 package main
 
 import (
+    //"time"
+    "strconv"
+    "math/rand"
     "fmt"
     "log"
     "net/http"
+    "io/ioutil"
 
     "github.com/gorilla/websocket"
 )
@@ -13,6 +17,16 @@ var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
     WriteBufferSize: 1024,
 }
+
+type User struct {
+    Connect *websocket.Conn
+    client_key string
+}
+/*
+type Connect_Users []User
+*/
+
+var userConnect []User
 
 var Connect *websocket.Conn
 
@@ -38,15 +52,47 @@ func reader(conn *websocket.Conn) {
 }
 
 
-func sendM(don *websocket.Conn) {
+func sendM(don *websocket.Conn,message string) {
 var err error
     //msg := `Hi, the handshake it complete!`
-msg := []byte("Let's ogogogo to talk something.")
+msg := []byte(message)
     err = don.WriteMessage(websocket.TextMessage, msg)
     if err != nil {
         log.Println(err)
     }
 }
+
+func goodGet() {
+
+resp, err := http.Get("http://5.53.125.62/goget")
+   if err != nil {
+      log.Fatalln(err)
+   }
+//We Read the response body on the line below.
+   body, err := ioutil.ReadAll(resp.Body)
+   if err != nil {
+      log.Fatalln(err)
+   }
+//Convert the body to type string
+   sb := string(body)
+   //sb = strconv.Itoa(rand.Intn(100))
+   log.Printf(sb)
+   //sendM(Connect,"Super!"+sb)
+    for i, s := range userConnect {
+	go func(i int,s User,sb string) { 
+	str := strconv.Itoa(i)
+	sendM(s.Connect,s.client_key+"=>"+str+" - Ok:"+sb) }(i,s,sb)
+	//sendM(s.Connect,string(i)+"Ok"+sb);
+    }
+}
+
+func goGet(w http.ResponseWriter, r *http.Request) {
+
+    //time.Sleep(5 * time.Second)
+    sb := strconv.Itoa(rand.Intn(100))
+    fmt.Fprintf(w, sb)
+}
+
 
 
 func homePage(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +100,11 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	//go func() {
 	    // simulate a long task with time.Sleep(). 5 seconds
 	///    time.Sleep(5 * time.Second)
-	    sendM(Connect)
+	     go func() {
+    		//time.Sleep(2 * time.Second)
+		//sendM(Connect)
+		goodGet()
+	    }()
 	    //err = Conn.WriteMessage(1, []byte("Privet"))
 	    /*if err != nil {
 		log.Println(err)
@@ -65,7 +115,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	    //log.Println("Done! in path " + cCp.Request.URL.Path)
 	//}()
 	
-	fmt.Fprintf(w, "-----321_123o234me Page ;)++ Truper And Git)")
+	fmt.Fprintf(w, "123-----321_123o234me Page ;)++ Truper And Git)")
 }
 
 
@@ -79,6 +129,9 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
         log.Println(err)
     }
 
+    params := r.URL.Query()
+    client_key := string(params.Get("client_key"))
+
     log.Println("Client Connected")
     err = ws.WriteMessage(1, []byte("Hi Client!"))
     if err != nil {
@@ -86,18 +139,25 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
     }
 
     Connect = ws
+
+    user_conn := User { Connect: ws, client_key: client_key }
+
+    userConnect = append(userConnect,user_conn)
+
     // listen indefinitely for new messages coming
     // through on our WebSocket connection
+    //go func() { reader(ws) }()
     reader(ws)
 }
 
 func setupRoutes() {
-    //http.HandleFunc("/", homePage)
+    http.HandleFunc("/goget", goGet)
     http.HandleFunc("/ws", wsEndpoint)
     http.HandleFunc("/", homePage)
 }
 
 func main() {
+    //userConnect := []*websocket.Conn{}
     fmt.Println("Hello World")
     setupRoutes()
     log.Fatal(http.ListenAndServe(":8181", nil))
